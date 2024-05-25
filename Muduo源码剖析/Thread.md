@@ -1,0 +1,253 @@
+# Thread类
+
+
+
+## 架构
+
+```c++
+class Thread : noncopyable
+{
+public:
+    using ThreadFunc = std::function<void()>;
+
+    explicit Thread(ThreadFunc, const std::string &name = std::string());
+    ~Thread();
+
+    void start();
+    void join();
+
+    bool started() const { return started_; }
+    pid_t tid() const { return tid_; }
+    const std::string& name() const { return name_; }
+
+    static int numCreated() { return numCreated_; }
+private:
+    void setDefaultName();
+
+    bool started_;
+    bool joined_;
+    std::shared_ptr<std::thread> thread_;
+    pid_t tid_;
+    ThreadFunc func_;
+    std::string name_;
+    static std::atomic_int numCreated_;
+};
+```
+
+
+
+## 启动线程
+
+一个Thread对象，记录的就是一个新线程的详细信息
+
+```c++
+void Thread::start()  // 一个Thread对象，记录的就是一个新线程的详细信息
+{
+    started_ = true;
+    sem_t sem;
+    sem_init(&sem, false, 0);
+
+    // 开启线程
+    thread_ = std::shared_ptr<std::thread>(new std::thread([&](){
+        // 获取线程的tid值
+        tid_ = CurrentThread::tid();
+        sem_post(&sem);
+        // 开启一个新线程，专门执行该线程函数
+        func_();  //void EventLoopThread::threadFunc()
+    }));
+
+    // 这里必须等待获取上面新创建的线程的tid值
+    sem_wait(&sem); //因为线程之间执行速度和顺序不同，所以先对开启的线程进行开启成功判断，当能够获取tid，说明已经开启，否则一直阻塞start函数。
+}
+```
+
+
+
+# EventLoopThread类
+
+结合LOOP和Thread
+
+## 架构
+
+```c++
+class EventLoopThread : noncopyable
+{
+public:
+    using ThreadInitCallback = std::function<void(EventLoop*)>; 
+
+    EventLoopThread(const ThreadInitCallback &cb = ThreadInitCallback(), 
+        const std::string &name = std::string());
+    ~EventLoopThread();
+
+    EventLoop* startLoop();
+private:
+    void threadFunc();
+
+    EventLoop *loop_;
+    bool exiting_;
+    Thread thread_;
+    std::mutex mutex_;
+    std::condition_variable cond_;
+    ThreadInitCallback callback_;
+};
+```
+
+
+
+## 构造函数
+
+```c++
+EventLoopThread::EventLoopThread(const ThreadInitCallback &cb, 
+        const std::string &name)
+        : loop_(nullptr)
+        , exiting_(false)
+        , thread_(std::bind(&EventLoopThread::threadFunc, this), name)
+        , mutex_()
+        , cond_()
+        , callback_(cb)
+{
+
+}
+```
+
+
+
+## 启动线程
+
+能够得到一个loop对象
+
+```c++
+EventLoop* EventLoopThread::startLoop()
+{
+    thread_.start(); // 启动底层的新线程
+
+    EventLoop *loop = nullptr;
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        while ( loop_ == nullptr )
+        {
+            cond_.wait(lock);
+        }
+        loop = loop_;
+    }
+    return loop;
+}
+
+// 下面这个方法，在单独的新线程Thread 对象中创建的线程里面运行的
+void EventLoopThread::threadFunc()
+{
+    EventLoop loop; // 创建一个独立的eventloop，和上面的线程是一一对应的，one loop per thread
+
+    if (callback_)
+    {
+        callback_(&loop); //执行ThreadInitCallback &cb,   由上一级的pool类传递，上上一级的tcpserver传递
+    }
+
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        loop_ = &loop;
+        cond_.notify_one();
+    }
+
+    loop.loop(); // EventLoop loop  => Poller.poll 会一直循环
+    std::unique_lock<std::mutex> lock(mutex_);
+    loop_ = nullptr;
+}
+```
+
+
+
+# EventLoopThreadPool类
+
+管理EventLoopThread对象
+
+## 架构
+
+```c++
+class EventLoopThreadPool : noncopyable
+{
+public:
+    using ThreadInitCallback = std::function<void(EventLoop*)>; 
+
+    EventLoopThreadPool(EventLoop *baseLoop, const std::string &nameArg);
+    ~EventLoopThreadPool();
+
+    void setThreadNum(int numThreads) { numThreads_ = numThreads; }
+
+    void start(const ThreadInitCallback &cb = ThreadInitCallback());
+
+    // 如果工作在多线程中，baseLoop_默认以轮询的方式分配channel给subloop
+    EventLoop* getNextLoop();
+
+    std::vector<EventLoop*> getAllLoops();
+
+    bool started() const { return started_; }
+    const std::string name() const { return name_; }
+private:
+
+    EventLoop *baseLoop_; // EventLoop loop;  用户创建的一开始loop
+    std::string name_;
+    bool started_;
+    int numThreads_;
+    int next_;
+    std::vector<std::unique_ptr<EventLoopThread>> threads_;
+    std::vector<EventLoop*> loops_;
+};
+```
+
+
+
+## 创建N个线程并启动
+
+
+
+```c++
+void EventLoopThreadPool::start(const ThreadInitCallback &cb)
+{
+    started_ = true;
+
+    for (int i = 0; i < numThreads_; ++i)
+    {
+        char buf[name_.size() + 32];
+        snprintf(buf, sizeof buf, "%s%d", name_.c_str(), i);
+        
+        EventLoopThread *t = new EventLoopThread(cb, buf);
+        threads_.push_back(std::unique_ptr<EventLoopThread>(t));
+        
+        loops_.push_back(t->startLoop()); // 底层创建线程，绑定一个新的EventLoop，并返回该loop的地址
+    }
+
+    // 整个服务端只有一个线程，运行着baseloop
+    if (numThreads_ == 0 && cb)
+    {
+        cb(baseLoop_);
+    }
+}
+```
+
+
+
+## 轮询loop
+
+每次调用一次，获取下一个loop对象。
+
+```c++
+// 如果工作在多线程中，baseLoop_默认以轮询的方式分配channel给subloop
+EventLoop* EventLoopThreadPool::getNextLoop()
+{
+    EventLoop *loop = baseLoop_;
+
+    if (!loops_.empty()) // 通过轮询获取下一个处理事件的loop
+    {
+        loop = loops_[next_];
+        ++next_;
+        if (next_ >= loops_.size())
+        {
+            next_ = 0;
+        }
+    }
+
+    return loop;
+}
+```
+
