@@ -196,7 +196,7 @@ write(socket, tmp_buf, len);
 
 1.mmap() + write() :三次数据拷贝 + 4次上下文切换
 
-2.linux中的sendfile(): 二次数据拷贝 + 2次上下文切换
+2.linux中的sendfile(): 3次数据拷贝 + 2次上下文切换
 
 具体解析参见小林coding（https://xiaolincoding.com/os/8_network_system/zero_copy.html#%E4%BD%BF%E7%94%A8%E9%9B%B6%E6%8B%B7%E8%B4%9D%E6%8A%80%E6%9C%AF%E7%9A%84%E9%A1%B9%E7%9B%AE）
 

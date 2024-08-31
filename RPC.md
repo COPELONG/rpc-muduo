@@ -4,13 +4,15 @@
 
 不同模块部署得到不同服务器上，组合成一个系统提供服务
 
-![image-20240426150222600](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240426150222600.png)
+![image-20240426150222600](D:\typora-image\image-20240426150222600.png)
 
 
 
 ### RPC：
 
-![image-20240426150318296](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240426150318296.png)
+![image-20240827175159797](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240827175159797.png)
+
+![image-20240426150318296](D:\typora-image\image-20240426150318296.png)
 
 黄色部分：设计rpc方法参数的打包和解析，也就是数据的序列化和反序列化，使用Protobuf。
 绿色部分：网络部分，包括寻找rpc服务主机，发起rpc调用请求和响应rpc调用结果，使用muduo网络库和zookeeper服务配置中心（专门做服务发现）。
@@ -46,11 +48,11 @@ service UserServiceRPC
 }
 ```
 
-![image-20240426180954800](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240426180954800.png)
+![image-20240426180954800](D:\typora-image\image-20240426180954800.png)
 
-![image-20240426182516079](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240426182516079.png)
+![image-20240426182516079](D:\typora-image\image-20240426182516079.png)
 
-
+![image-20240819103902062](D:\typora-image\image-20240819103902062.png)
 
 ### 读取配置项
 
@@ -90,15 +92,15 @@ private:
 
 设置连接回调和消息读写回调
 
-![image-20240429155857185](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240429155857185.png)
+![image-20240429155857185](D:\typora-image\image-20240429155857185.png)
 
 
 
 ### 发布方法 (注册服务方法)
 
-![image-20240429163603712](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240429163603712.png)
+![image-20240429163603712](D:\typora-image\image-20240429163603712.png)
 
-![image-20240429175929411](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240429175929411.png)
+![image-20240429175929411](D:\typora-image\image-20240429175929411.png)
 
 ```c++
 void RpcProvider::NotifyService(google::protobuf::Service *service)
@@ -274,9 +276,9 @@ void RpcProvider::SendRpcResponse(const muduo::net::TcpConnectionPtr &conn, goog
 
 ## 客户端
 
-![image-20240430190946267](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240430190946267.png)
+![image-20240430190946267](D:\typora-image\image-20240430190946267.png)
 
-![image-20240430184650219](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240430184650219.png)
+![image-20240430184650219](D:\typora-image\image-20240430184650219.png)
 
 
 
@@ -390,7 +392,7 @@ int clientfd = socket(AF_INET, SOCK_STREAM, 0);
 
 RPC调用的过程中成功与否。
 
-![image-20240502180410673](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240502180410673.png)
+![image-20240502180410673](D:\typora-image\image-20240502180410673.png)
 
 ```c++
 #pragma once
@@ -422,7 +424,7 @@ private:
 
 
 
-![image-20240506091956211](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506091956211.png)
+![image-20240506091956211](D:\typora-image\image-20240506091956211.png)
 
 ```c++
 class Logger
@@ -459,7 +461,11 @@ private:
     }while(0)\
 ```
 
-![image-20240506100416412](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506100416412.png)
+![image-20240506100416412](D:\typora-image\image-20240506100416412.png)
+
+![image-20240820155146480](D:\typora-image\image-20240820155146480.png)
+
+这会导致语法错误，因为 `if` 语句只控制第一行，而其他的代码不在 `if` 的控制范围内。
 
 
 
@@ -475,13 +481,13 @@ private:
 
 ### Znode
 
-![image-20240506171811091](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506171811091.png)
+![image-20240506171811091](D:\typora-image\image-20240506171811091.png)
 
-![image-20240506173216275](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506173216275.png)
+![image-20240506173216275](D:\typora-image\image-20240506173216275.png)
 
 划分Znode路径 ：/ UserServiceRpc / Login  存储的是IP+PORT
 
-![image-20240506174208710](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506174208710.png)
+![image-20240506174208710](D:\typora-image\image-20240506174208710.png)
 
 
 
@@ -489,25 +495,117 @@ private:
 
 客户端监听节点变化，ZK用来通知变化。
 
-![image-20240506181409719](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506181409719.png)
+![image-20240506181409719](D:\typora-image\image-20240506181409719.png)
 
+```
+zookeeper_init(connstr.c_str(), global_watcher, 30000, nullptr, nullptr, 0);
+30000代表 session timeout 也就是心跳超时时间
+global_watcher是回调函数，用于处理连接状态变化事件。比如当会话过期时，你可以在这里重新连接 ZooKeeper。
 
+```
 
-![image-20240506182304985](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506182304985.png)
+![image-20240506182304985](D:\typora-image\image-20240506182304985.png)
 
 ### 服务注册ZK
 
-![image-20240506191856344](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506191856344.png)
+![image-20240506191856344](D:\typora-image\image-20240506191856344.png)
 
-![image-20240506211628812](https://my-figures.oss-cn-beijing.aliyuncs.com/Figures/image-20240506211628812.png)
-
-
+![image-20240506211628812](D:\typora-image\image-20240506211628812.png)
 
 
 
+以下是关于 Zookeeper 的一些常见面试问题及其解答：
 
+### 1. **什么是 Zookeeper？它的主要功能是什么？**
 
+   - **Zookeeper** 是一个分布式协调服务，用于管理分布式应用中的配置信息、命名、分布式同步和组服务等。
+   - **主要功能**：
+     - **命名服务**：提供分布式系统中统一命名的功能。
+     - **配置管理**：集中式管理分布式系统的配置信息。
+     - **分布式同步**：通过分布式锁和队列实现同步。
+     - **组服务**：提供分布式环境中的组成员管理。
 
+### 2. **Zookeeper 的节点是什么？**
+
+   - **节点（ZNode）** 是 Zookeeper 中的数据单元，类似于文件系统中的文件和目录。
+   - **节点类型**：
+     - **持久节点**：即使客户端断开连接，节点依然存在。
+     - **临时节点**：客户端断开连接时，节点会被自动删除。
+     - **有序节点**：节点名称带有一个自增的序号，便于顺序访问。
+
+### 3. **Zookeeper 的工作原理是什么？**
+
+   - Zookeeper 采用 **Leader-Follower** 架构：
+     - **Leader** 负责处理所有写请求，并在处理后通过 Paxos 协议将状态同步到所有 Follower。
+     - **Follower** 处理读请求并将写请求转发给 Leader。
+   - 客户端连接到 Zookeeper 集群时，通常会选择一个 Follower 进行读操作和临时节点的管理。
+
+**集群（Ensemble）**: Zookeeper 通常以集群的形式运行，至少有三台服务器。集群中的每台服务器都可以处理客户端请求，但只有一台服务器会作为“领导者”（Leader）进行写操作，其余的作为“追随者”（Follower）同步数据和处理读取请求。
+
+**Leader Election**: 在 Zookeeper 集群中，如果领导者节点挂掉，剩下的节点会通过选举算法选举出新的领导者。Zookeeper 使用 Zab（Zookeeper Atomic Broadcast）协议来确保领导者的选举和状态机的同步。
+
+**写操作**: 客户端向 Zookeeper 集群发起写操作时，操作请求会被发送到领导者（Leader）。领导者将这个写操作广播给所有追随者（Followers）。当大多数追随者都确认接收到该操作后，领导者才会将操作应用到自己的状态，并通知客户端操作完成。这种机制确保了分布式系统的一致性。
+
+### 4. **Zookeeper 中的 Watcher 是什么？**
+
+   - **Watcher** 是 Zookeeper 中的一种机制，允许客户端监听 ZNode 的变化。
+   - 当节点的数据或状态发生变化时，Zookeeper 会通知注册了 Watcher 的客户端。
+   - Watcher 是一次性的，即触发后需要重新注册。
+
+### 5. **Zookeeper 如何保证一致性？**
+
+   - Zookeeper 采用了 **ZAB（Zookeeper Atomic Broadcast）** 协议，确保所有写操作以原子方式广播给集群中的所有节点。
+   - 写操作必须由集群中的大多数节点（Quorum）确认后才算成功。
+   - 这保证了 Zookeeper 的 **强一致性** 模型：客户端可以读取到最新写入的值。
+
+### 6. **Zookeeper 是如何处理脑裂问题的？**
+
+   - **脑裂** 是指集群因网络分区或其他原因被分成多个部分，每个部分都认为自己是集群的控制者。
+   - Zookeeper 通过 **Quorum** 策略解决脑裂问题：只有集群中大多数节点存活的那部分才能选出 Leader 并继续服务，其他部分会进入阻塞状态。
+
+### 7. **Zookeeper 集群的最小节点数是多少？**
+
+   - Zookeeper 集群通常需要 **奇数个** 节点，最少需要 **3 个节点** 才能容忍 1 个节点的故障（即形成 Quorum）。
+   - 集群的大小应为 `2N+1`，其中 `N` 为可容忍的最大故障节点数。
+
+### 8. **Zookeeper 的 CAP 定理是什么？**
+
+   - **CAP 定理** 指的是在分布式系统中，无法同时满足一致性（Consistency）、可用性（Availability）和分区容忍性（Partition Tolerance）。
+   - Zookeeper 是 **CP 系统**：它更倾向于一致性和分区容忍性，在网络分区时可能会牺牲可用性。
+
+### 9. **Zookeeper 中的“会话”是什么？**
+
+   - Zookeeper 中的 **会话** 是客户端与 Zookeeper 服务端之间的连接状态。
+   - 会话的状态可以是：**连接中**、**断开**、**过期** 等。
+   - 如果客户端在会话超时前未能与 Zookeeper 重新连接，则会话过期，所有与该会话相关的临时节点会被删除。
+
+### 10. **如何处理 Zookeeper 的“羊群效应”？**
+
+   - **羊群效应** 是指大量客户端因某一节点的变化而同时被唤醒，导致系统负载剧增。
+   - 解决办法：
+     - 降低 Watcher 的使用频率，尽量批量处理节点变化。
+     - 利用本地缓存减少对 Zookeeper 的直接查询。
+
+### 11. **Zookeeper 的 ACL（访问控制列表）是什么？**
+
+   - **ACL**（Access Control List）用于管理 Zookeeper 节点的权限。
+   - 常见的权限包括：**CREATE**（创建）、**READ**（读取）、**WRITE**（写入）、**DELETE**（删除）、**ADMIN**（管理）。
+   - ACL 可以控制不同客户端对不同节点的访问权限。
+
+### 12. **Zookeeper 如何实现分布式锁？**
+
+   - Zookeeper 通过 **临时有序节点** 实现分布式锁：
+     - 客户端创建一个带序号的临时节点。
+     - 客户端查询所有临时节点，若自己的节点序号最小，则获得锁。
+     - 当客户端断开连接或主动删除节点，锁会自动释放，其他等待锁的客户端会被通知。
+
+### **客户端与服务器之间的心跳机制**
+
+ZooKeeper 客户端与服务器之间也有心跳机制，这主要是通过`session`（会话）实现的。
+
+- **客户端定期发送心跳**：ZooKeeper 客户端会定期向连接的服务器发送心跳请求，以保持会话的活跃性。这个心跳请求通常是 `PING` 操作。
+- **会话超时**：ZooKeeper 在每个客户端会话期间会监控心跳。如果在指定的超时时间（`sessionTimeout`）内没有收到客户端的心跳，服务器将认为客户端已经断开，并将该会话标记为失效。这会导致与该客户端相关的临时节点被删除。
+- **`sessionTimeout` 的配置**：`sessionTimeout` 可以在客户端连接 ZooKeeper 服务器时设置，这个超时时间决定了客户端与服务器之间失去联系的时间长度（心跳失效时间）。
 
 
 
